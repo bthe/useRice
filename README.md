@@ -1,4 +1,4 @@
 useRice
 =======
 
-Document connected to the Icelandic R user group
+Documents connected to the Icelandic R user group
