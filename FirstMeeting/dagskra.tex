@@ -1,0 +1,109 @@
+  \documentclass[mathserif]{beamer} % options: gray
+
+% HANDOUTS
+%\documentclass[handout,mathserif]{beamer} % options: gray
+
+\usetheme{CambridgeUS} %sidebar
+%\usecolortheme{rose}
+%\usecolortheme{dolphin}
+
+\usepackage{graphicx}
+\usepackage{amssymb,amsmath}
+\usepackage[T1]{fontenc}
+\usepackage[icelandic]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{bm}
+\usepackage{tipx}
+\usepackage{marvosym}
+\usepackage{subfigure}
+\usepackage{pgfpages}
+\usepackage{multirow}
+\usepackage{textpos}
+% hvis man vil har eg. 4 slides på en side
+%\pgfpagesuselayout{4 on 1}[a4paper,border shrink = 5mm, landscape]
+%\pgfpagesuselayout{8 on 1}[a4paper,border shrink = 5mm]
+
+\definecolor{lgrey}{RGB}{245,245,245}
+\setbeamercolor{block body}{fg=black,bg=lgrey}
+
+\setbeamercolor{palette primary}{fg=white,bg=orange}
+\setbeamercolor{palette secondary}{fg=orange}
+\setbeamercolor{palette tertiary}{fg=white,bg=orange}
+\setbeamercolor{frametitle}{fg=orange}
+\setbeamercolor{title}{fg=orange}
+%\setbeamercolor{footlinecolor}{fg=orange}
+\setbeamercolor{author in foot}{fg=gray,bg=orange}
+%author in head/foot
+
+
+\DeclareMathOperator{\var}{Var}
+\DeclareMathOperator{\cov}{Cov}      % Covariance
+\DeclareMathOperator{\bcov}{\cov}    % Covariance (as used in the GLM book)
+\DeclareMathOperator{\mcov}{C}       % multi dimensional covariance
+\DeclareMathOperator{\dis}{D}        % dispersion matrix
+\DeclareMathOperator{\acfest}{C}     % estimate of the autocovariance function
+\DeclareMathOperator{\e}{E}          % mean
+\DeclareMathOperator{\mean}{\e}      % mean (as used in the GLM book)
+\DeclareMathOperator{\cor}{Cor}      % correlation
+\DeclareMathOperator{\diag}{diag}    % diagonal-matrix
+\DeclareMathOperator{\rang}{rank}    % matrix-rank
+\DeclareMathOperator{\for}{for}    % for
+\DeclareMathOperator{\FOp}{F}        % forward shift operator
+\DeclareMathOperator{\SOp}{S}        % sum operator
+\DeclareMathOperator{\HOp}{H}        % arbitrary operator
+\DeclareMathOperator{\Real}{Re}      % real-part
+\DeclareMathOperator{\Imag}{Im}      % imaginary-part
+\DeclareMathOperator*{\member}{\in}  % belongs to or is an element in
+\DeclareMathOperator{\msea}{MSE1}    % Mean Square Error 1
+\DeclareMathOperator{\mseb}{MSE2}    % Mean Square Error 2
+\DeclareMathOperator{\sse}{SSE}      % Sum of Squared Errors
+\DeclareMathOperator{\ssb}{SSB}      % Sum of Squared Blocks
+\DeclareMathOperator{\sst}{SST}      % Sum of Squared Treatments
+\DeclareMathOperator{\adj}{adj}      % Just guessing...
+
+\newcommand{\bs}{\boldsymbol}
+\newcommand{\bi}{\begin{itemize}\item}
+\newcommand{\ei}{\end{itemize}}
+\newcommand{\eq}[1]{\begin{equation*} #1 \end{equation*}}
+\newcommand{\ea}[1]{\begin{eqnarray} #1 \end{eqnarray}}
+\newcommand{\vs}{\vspace{2mm}}
+
+\definecolor{Red}{rgb}{0.9,0,0.1}
+\title{R-{\'I}sland}
+\begin{document}
+
+\frame{
+\frametitle{Today's agenda}
+\bi Sandwiches and networking
+\vs
+\item Todays speaker: Anna Helga J{\'o}nsd{\'o}ttir
+\vs
+\item Election of a steering committee
+\vs
+\item Schedule for monthly events
+\ei
+\begin{columns}
+\begin{column}{0.6\linewidth}
+\end{column}
+\begin{column}{0.4\linewidth}
+\includegraphics[width=0.4\linewidth]{r}
+\end{column}
+\end{columns}
+}
+\frame{
+\frametitle{Election of a steering committee}
+\centering \Huge{Volunteers:)} 
+}
+
+\frame{
+\frametitle{Schedule for monthly events}
+\bi Potential topics
+\vs
+\item Timing
+\vs
+\item Speakers
+\vs
+\item Github (https://github.com/bthe/useRice)
+\ei
+}
+\end{document}
