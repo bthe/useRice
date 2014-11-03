@@ -1,0 +1,130 @@
+---
+title: "ROC and Reclassification analysis in R - part 2"
+author: "Thor Aspelund, Icelandic Heart Association, University of Iceland Public Health"
+date: "October 30th 2014"
+output: beamer_presentation
+subtitle: R Ísland meeting
+---
+```{r,echo=FALSE,message=FALSE}
+library(xtable)
+library(ggplot2)
+library(epitools)
+library(survival)
+library(stargazer)
+library(png)
+library(rms)
+library(Hmisc)
+library(pROC)
+library(PredictABEL)
+library(survC1)
+library(survIDINRI)
+library(timeROC)
+
+data(wcgs)
+wcgs$smoker <- ifelse(wcgs$ncigs0>0,1,0)
+wcgs$smokerfny <- factor(wcgs$smoker,levels=c(0,1),labels=c("No","Yes"))
+wcgs$heightcm <- wcgs$height0*2.54
+wcgs$weightkg <- wcgs$weight0*0.45359237
+wcgs$bmi <- wcgs$weightkg / (wcgs$heightcm/100)^2
+wcgs$cholmmol = wcgs$chol/39
+wcgs$dibpat0f <- factor(wcgs$dibpat0,levels=0:1,label=c("B","A"))
+wcgs$chd69fny <- factor(wcgs$chd69,levels=c(0,1),labels=c("No CHD","CHD"))
+wcgs.s <- subset(wcgs,cholmmol<15)
+```
+
+```{r,cache=TRUE,echo=FALSE}
+setwd("C:/Users/aspelund/Dropbox/Fyrirlestrar/R meeting ROC and Reclass 30okt14")
+source("reclass.R")
+```
+
+```{r,echo=FALSE,results='hide'}
+rcls<-reclass(chd69 ~ age0 + cholmmol + sbp0 + bmi + smoker 
+              + dibpat0f,lim=c(0.1,0.2),wcgs.s,1,TRUE)
+```
+
+## The category free NRI (continuous NRI)
+* Statistics in Medince 2011 (online 2010)
+* Extensions of net reclassification improvement
+calculations to measure usefulness of new
+biomarkers
+* Michael J. Pencina, Ralph B. D Agostino Sr, and Ewout W. Steyerberg
+
+$$
+NRI= \frac{(P(event|up)−P(event))P(up)+(P(event)−P(event|down))P(down)}{P(event)(1−P(event))} 
+$$
+
+* Notice the prospective defintion
+* It can be interpreted as a measure of
+event rate increase among those who are reclassified upwards and event rate decrease among those who are reclassified
+downwards
+* Applies to survival and case control data
+
+```{r,cache=TRUE,echo=FALSE,results='hide'}
+fit0 <- lrm(chd69 ~ age0,data=wcgs.s,x=T,y=T)
+fit1<-update(fit0,.~.+cholmmol + sbp0 + bmi + smoker)
+fit2 <- update(fit1,.~.+dibpat0f)
+pred1 <- predict(fit1,type="fitted")
+pred2 <- predict(fit2,type="fitted")
+```
+
+
+## The continuous NRI
+* From PredictABEL
+* reclassification(wcgs.s,11,pred1,pred2,c(0,0.1,0.2,1))
+* NRI(Continuous) [95% CI]: 0.4081 [ 0.2892 - 0.527 ] ; p-value: 0
+
+
+## Survival data
+```{r}
+cox1 <- cph(Surv(time169,chd69) ~ age0 + cholmmol + sbp0 + smokerfny,data=wcgs.s,x=T,y=T)
+cox2 <- cph(Surv(time169,chd69) ~ age0 + cholmmol + sbp0 + smokerfny + dibpat0f,data=wcgs.s,x=T,y=T)
+lrtest(cox1,cox2)
+```
+
+## The C statistic comparison (Harrell)
+```{r}
+rcorrp.cens(1-predict(cox1,type="lp"),1-predict(cox2,type="lp"),Surv(wcgs.s$time169,wcgs.s$chd69))
+```
+
+## The C statistics (survC1)
+```{r,cache=TRUE}
+mydata1<-cbind(wcgs.s$time169,wcgs.s$chd69,cox1$x)
+mydata2<-cbind(wcgs.s$time169,wcgs.s$chd69,cox2$x)
+sc1<-Est.Cval(mydata1,5*365.24)
+sc2<-Est.Cval(mydata2,5*365.24)
+names(sc1)
+sc1$Dhat
+sc2$Dhat
+```
+
+## C statistics  (timeROC)
+```{r,cache=TRUE}
+troc1<-timeROC(wcgs.s$time169,wcgs.s$chd69,predict(cox1,type="lp"),cause=1,times=5*365.24,iid=T)
+troc2<-timeROC(wcgs.s$time169,wcgs.s$chd69,predict(cox2,type="lp"),cause=1,times=5*365.24,iid=T)
+troc1
+troc2
+```
+
+## Comparisons (timeROC)
+```{r,cache=TRUE}
+compare(troc1,troc2)
+```
+
+
+## Pepe paper 2013
+* Statistics in Medicine 2013
+* Pepe MS 
+* Tests of significance of parameter, change in AUC, NRI, IDI all equivalent
+* Makes no sense to test the same hypothesis many times
+* Report AUC and change as descriptive statistics and focus on practical change in magnitude
+* Show reclassification tables rather than the continuous NRI
+
+## Conclusion
+* Is Jörgen Hilden right about these being good looking statistics with nothing underneath?
+* Yes, because all the statistical signficance to test is for the parameter
+* Don't dwell on the statistical significance of difference in AUC, NRI and IDI
+* The additional statistics are still good descriptive statistics of model performance
+* The AUC is a fundamental statistic to report and the inteplay between sensitivity and specificity
+* Decision theory (papers by Vickers and Steyerberg)
+
+

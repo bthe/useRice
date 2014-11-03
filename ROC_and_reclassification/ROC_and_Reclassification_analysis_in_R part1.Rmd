@@ -1,0 +1,381 @@
+---
+title: "ROC and Reclassification analysis in R"
+author: "Thor Aspelund, Icelandic Heart Association, University of Iceland Public Health"
+date: "October 30th 2014"
+output: beamer_presentation
+subtitle: R Ísland meeting
+---
+```{r,echo=FALSE,message=FALSE}
+library(xtable)
+library(ggplot2)
+library(epitools)
+library(survival)
+library(stargazer)
+library(png)
+library(rms)
+library(Hmisc)
+library(pROC)
+library(PredictABEL)
+library(survC1)
+library(survIDINRI)
+library(timeROC)
+
+data(wcgs)
+wcgs$smoker <- ifelse(wcgs$ncigs0>0,1,0)
+wcgs$smokerfny <- factor(wcgs$smoker,levels=c(0,1),labels=c("No","Yes"))
+wcgs$heightcm <- wcgs$height0*2.54
+wcgs$weightkg <- wcgs$weight0*0.45359237
+wcgs$bmi <- wcgs$weightkg / (wcgs$heightcm/100)^2
+wcgs$cholmmol = wcgs$chol/39
+wcgs$dibpat0f <- factor(wcgs$dibpat0,levels=0:1,label=c("B","A"))
+wcgs$chd69fny <- factor(wcgs$chd69,levels=c(0,1),labels=c("No CHD","CHD"))
+wcgs.s <- subset(wcgs,cholmmol<15)
+```
+
+```{r,cache=TRUE,echo=FALSE}
+setwd("C:/Users/aspelund/Dropbox/Fyrirlestrar/R meeting ROC and Reclass 30okt14")
+source("reclass.R")
+```
+
+## CHD risk models
+
+* Icelandic Heart Association Risk Score
+    + http://www.hjarta.is
+  
+* European HeartSCORE 
+    + http://www.heartscore.org/Pages/welcome.aspx
+  
+* Framingham Risk Score (Circulation 1998) 
+    + http://circ.ahajournals.org/content/97/18/1837.long
+
+## The ongoing search for risk markers
+* There is an existing risk score in use
+* We would like to introcude a new marker to improve the score
+* Is the new score better than the old score?  **That is the question**
+
+## Introducing a new marker
+### Measuring improvement using statistcal models
+* Model 1: Basic risk score model 
+* Model 2: Basic risk score model + new marker
+* Is risk score 2 better than risk score 1?
+* In other words: Is Model 2 an improvment of than Model 1?  
+
+## How is a risk score evaluated?
+* In categorical data analysis we have met various
+concordance measures, such as:
+    + Kendall's $tau_a$
+    + Somer's D
+    + The C index
+  
+##  Concordance measures - binary outcome
+View $Y$ as a binary outcome, either $Y=1$ or $Y=0$.
+Let $Z$ be a continous risk score.
+The concordance between the risk score and the outcome can be
+measured by Kendall's $\tau_a$
+$$
+\tau_a(Y,Z) = E(\text{sign}(Z_1-Z_2)\text{sign}(Y_1-Y_2)))
+$$
+where the pairs $(Y_1,Z_1)$ and $(Y_2,Z_2)$ are chosen at random. 
+
+Somer's $D$ is an adaption of $\tau_a$ 
+$$
+D(Z,Y) = \tau_a(Y,Z) / \tau_a(Y,Y)
+$$
+
+
+## Concordance and the C statistic
+If there are no ties in $Z$ it can be shown that
+$$
+D(Z,Y) = 2 \cdot P(Z_i > Z_j | Y_i > Y_j)-1 = 2 \cdot C(Z,Y) - 1
+$$
+Where 
+$$
+C(Z,Y) = P(Z_i > Z_j | Y_i > Y_j)
+$$
+
+* The $C$ statistic is the probability that a risk score for a case $Y_i=1$ is greater than the risk score for a control $Y_j=0$.  
+* We want this probability to be high.  
+* It can be shown (via integration) that $0.5<=C(Z,Y)<=1$.
+
+## ROC analysis, AUC and the C statistic
+* ROC analysis is an analysis of sensitivity and specificity
+* Let $Z$ be a continuous risk score and $z$ be an arbitrary cutoff value. Choose a random case or a control (Denote by $Y$). 
+  Compute the risk score $Z$ for each.
+* Assume you are blinded to the case control status.  Declare the subject to be a case if Z>z, otherwise a control.
+* Then $P(Z > z | Y=1)$ is the sensitivity or the True Positive Probability (TP).
+* $P(Z > z | Y=0) = 1 - P(Z<z | Y=0)$ is 1-specificity or the False Positive Probability (FP).
+* A graph of $TP=P(Z > z | Y=1)$ vs. $FP=P(Z > z | Y=0)$ is the ROC curve for the diagnostic test $Z$.
+* It can be shown that the area under the curve (AUC) equals the $C$ statistic.  AUC=C!
+* Common values for $C$ for risk models are in the range 0.70 to 0.75.
+
+## Frank Harrell and the rms package
+* Frank Harell provides many diagnostic functions in the *rms* package.  $C$ and $D$ are displayed as elements in 
+*lrm* (logistic regression models) objects.  However, $C$ with $D$ and a standard error for $D$ are provided with *rcorr.cens*. Note that the standard error of $C$ is half the standard error of $D$.
+
+* Recall:  $C=0.5 \cdot (D + 1)$
+
+## The example data
+* WCGS data - Western Collaborative Group Study
+* Prospective study of heart disease among men in California, initiated in 1960 
+* http://clinicaltrials.gov/show/NCT00005174
+* N = 3154, age `r min(wcgs.s$age0)` to `r max(wcgs.s$age0)`, free of heart disease
+* Follow-up for 10 years
+* Data (*wcgs*) available via the *epitools* package
+* N =  `r nrow(wcgs.s)` with complete data on risk factors used for analysis
+
+## C and D results from the rms package
+* Consider Model 0: chd ~ age
+```{r,cache=TRUE}
+fit0 <- lrm(chd69 ~ age0,data=wcgs.s,x=T,y=T)
+data.frame(C=fit0$stats[6],D=fit0$stats[7])
+rc0<-rcorr.cens(predict(fit0),fit0$y)
+data.frame(Estimate=rc0[1],SE=rc0[3]/2,
+           Lower=rc0[1]-1.96*rc0[3]/2,Upper=rc0[1]+1.96*rc0[3]/2)
+```
+We have $C=`r rc0[1]`$ for Model 0.  There is room for improvement.
+
+## Are under the ROC curve for Model 0 and threshold
+```{r,cache=TRUE}
+roc0<-roc(fit0$y,predict(fit0),ci=T)
+roc0.c <- coords(roc0,x="best",best.method=c("closest.topleft"))
+roc0
+roc0.c
+```
+
+## ROC curve for Model 0 and threshold
+```{r,fig.height=4,fig.width=5,echo=FALSE,results='hide'}
+plot(roc0,print.auc=T)
+points(roc0.c[2],roc0.c[3],col="red",pch=16,cex=1.4)
+```
+
+## The threshold on the risk scale
+```{r}
+plogis(roc0.c[1])
+```
+The age where the threshold is reached
+```{r}
+data.frame(age=(roc0.c[1]-coef(fit0)[1])/coef(fit0)[2])
+```
+
+## Risk as a function of age
+```{r,fig.height=4,fig.width=5}
+plot(39:49,predict(fit0,newdata=data.frame(age0=39:49),type="fitted"),type="l",ylab="chd risk")
+abline(v=(roc0.c[1]-coef(fit0)[1])/coef(fit0)[2])
+text(45,0.05,paste("Vertical line at risk threshold, age =",(roc0.c[1]-coef(fit0)[1])/coef(fit0)[2]))
+```
+
+## Model 1 - add cholesterol, blood pressure, bmi, and smoking
+```{r}
+fit1<-update(fit0,.~.+cholmmol + sbp0 + bmi + smoker)
+data.frame(C=fit1$stats[6],D=fit1$stats[7])
+rc1<-rcorr.cens(predict(fit1),fit1$y)
+data.frame(Estimate=rc1[1],SE=rc1[3]/2,
+           Lower=rc1[1]-1.96*rc1[3]/2,Upper=rc1[1]+1.96*rc1[3]/2)
+```
+
+## Model 1 is an improvment
+```{r,cache=TRUE,echo=FALSE}
+roc1 <-roc(fit1$y,predict(fit1),ci=T)
+roc1.c <- coords(roc1,x="best",best.method=c("closest.topleft"))
+roc1
+roc1.c
+plogis(roc1.c[1])
+```
+
+## ROC curve for Model 1 and Model 0 and threshold
+```{r,fig.height=4,fig.width=5,echo=FALSE,results='hide'}
+plot(roc0,print.auc=F)
+plot(roc1,add=T)
+points(roc0.c[2],roc0.c[3],col="red",pch=16,cex=1.4)
+points(roc1.c[2],roc1.c[3],col="blue",pch=16,cex=1.4)
+```
+
+## Test of improvement
+```{r}
+roc.test(roc0,roc1)
+```
+
+## The hunt for a new marker
+* We have our basic risk model (Model 1)
+* The $C$ statistic is `r rc1[1]`
+* This is a typical value for a chd risk model
+* We would still like to improve it
+* The hunt is on for a new marker
+* We add the new marker to Model 1 and measure the improvement
+
+## Our new marker - Personality A vs B
+Personality is associated with CHD.  The OR > 2.
+```{r}
+oddsratio.wald(wcgs$dibpat0f,wcgs$chd69)
+```
+
+## Models 
+* Model 0: 0 chd ~ age
+* Model 1: chd ~ age + bmi + chol + systolic + smoker
+* Model 2: chd ~ age + bmi + chol + systolic + smoker + personality
+
+--> personality with 2 levels (A,B) is our *new* marker
+
+## Model 2 - Add the personality marker
+```{r}
+fit2 <- update(fit1,.~.+dibpat0f)
+```
+The adjusted OR is
+```{r}
+data.frame(OR=exp(coef(fit2)[7]),Lower=exp(confint.default(fit2)[7,1]),Upper=exp(confint.default(fit2)[7,2]))
+```
+
+## ROC curves 0 1 and 2
+```{r,echo=FALSE,results='hide'}
+roc2 <-roc(fit2$y,predict(fit2),ci=T)
+roc2.c <- coords(roc2,x="best",best.method=c("closest.topleft"))
+plot(roc0,col="red",lty=3)
+points(roc0.c[2],roc0.c[3],col="red",pch=16,cex=1.4)
+plot(roc1,add=T,lty=2,col="blue")
+points(roc1.c[2],roc1.c[3],col="blue",pch=16,cex=1.4)
+plot(roc2,add=T,lty=1,col="black",lwd=3,print.auc=T)
+points(roc2.c[2],roc2.c[3],col="green",pch=16,cex=1.4)
+legend(0.4,0.4,lty=c(3,2,1),col=c("red","blue","black"),legend=c("Model 0","Model 1","Model 2"))
+```
+
+## Likelihood ratio test comparing Model 1 & 2
+```{r}
+lrtest(fit1,fit2)
+```
+* This means that the marker is highly significant.
+* Recall that the $\text{OR} \approx 2$
+
+## The Pepe 2004 paper
+* Limitations of the Odds Ratio in Gauging the Performance of a Diagnostic, Prognostic, or Screening Marker
+* Margaret Sullivan Pepe, Holly James, Gary Longton, Wendy Leisenring, and Polly Newcomb
+* American Journal of Epidemiology 2004
+
+### Message
+* Tells us about the limitations of the OR as a measure of diagnostic capacity and that ROC curves and sensitivity and specificity must be studied.
+* Also demonstrates how difficult it is to see a change in ROC curves between models using 1 new marker
+
+
+## Formally comparing ROC curves 1 and 2
+```{r}
+roc.test(roc1,roc2)
+```
+* Statisticsally signficant
+* The increment is less than 0.02!
+
+## The NEJM paper from the Icelandic Heart Association 
+* C-reactive protein and other circulating markers of inflammation in the prediction of coronary heart disease.
+* Danesh J1, Wheeler JG, Hirschfield GM, Eda S, Eiriksdottir G, Rumley A, Lowe GD, Pepys MB, Gudnason V.
+* N Engl J Med. 2004 Apr 1;350(14):1387-97.
+
+### Message
+* CRP is a statistically significant marker
+* Adding CRP to a risk model using traditional risk factors increase the ROC area by 0.01
+* *C-reactive protein is a relatively moderate predictor of coronary heart disease. Recommendations regarding its use in predicting the likelihood of coronary heart disease may need to be reviewed*
+
+## Frustration among CRP advocates
+What are we going to do about these small increments in AUC?
+
+## Nancy R Cook paper 2006 - Reclassification
+* The effect of including C-reactive protein in cardiovascular risk prediction models for women.
+* Cook NR1, Buring JE, Ridker PM.
+* Ann Intern Med. 2006 Jul 4;145(1):21-9.
+
+### Message
+* Introduced the concept of **reclassification**
+* Do subjects move between risk categories after adding the predictor?
+* A global risk prediction model that includes hsCRP improves cardiovascular risk classification in women, particularly among those with a 10-year risk of 5% to 20%. In models that include age, blood pressure, and smoking status, hsCRP improves prediction at least as much as do lipid measures.
+
+## Nancy R Cook paper 2006 - Reclassification
+* Did I mention the conflict of interest?
+
+### Potential conflict of interest reported in Cook's paper
+Dr. Ridker is listed as a co-inventor on patents held by the Brigham and Women's Hospital that relate to the use of inflammatory biomarkers in cardiovascular disease.
+
+```{r,results='hide',echo=FALSE}
+pred1 <- predict(fit1,type="fitted")
+pred2 <- predict(fit2,type="fitted")
+
+pred1c <- cut(pred1*100,c(0,10,20,100))
+pred2c <- cut(pred2*100,c(0,10,20,100))
+
+table(pred1c)
+table(pred2c)
+tblc <- table(pred1c,pred2c)
+```
+
+## Example of Cook's approach
+```{r}
+tblc
+```
+* This shows that many participants are reclassified. 
+* For example: `r tblc[1,2]` are reclassfied from 0 to 10% risk into 10-20% risk
+
+
+## Peninca 2008
+* Have to consider reclassification of people who develop and who do not develop the events **separately**
+* Defines the net reclassification improvement NRI based on risk categories
+```{r,results='hide',echo=FALSE}
+tblcs <- table(pred1c,pred2c,wcgs.s$chd69)
+tblcsc <- cbind(tblcs[,,1],tblcs[,,2])
+StatusCHD <- c("","CHD=0","","","CHD=1","")
+tblcscr<-rbind(StatusCHD,tblcsc)
+```
+
+```{r,results='asis',message=FALSE,echo=FALSE}
+print(xtable(tblcscr),type="latex",comment=FALSE)
+```
+
+* Inroduces statistical inference about reclassification (NRI)
+and Integrated discrimination improvement (IDI)
+
+
+## Test of net reclassification NRI
+Asymptotic test of
+
+
+$NRI = (\hat{p}_{up,events}-\hat{p}_{down,events})-(\hat{p}_{up,nonevents}-\hat{p}_{down,nonevents})$
+
+* Notice the retrospective definition
+* Doesn't really apply to **case control** data unless we can adjust the risk estimates to be meaningful
+
+## NRI estimate
+* Using *reclass* from
+* http://www.ucr.uu.se/en/index.php/epistat/program-code/306-nri-and-idi
+
+```{r}
+rcls<-reclass(chd69 ~ age0 + cholmmol + sbp0 + bmi + smoker 
+              + dibpat0f,lim=c(0.1,0.2),wcgs.s,1,TRUE)
+```
+
+the estimate was `r rcls$NRI` with $95\%$ CI as 
+(`r rcls$NRI-1.96*rcls$SE.NRI`,`r rcls$NRI+1.96*rcls$SE.NRI`).  In fact 
+`r rcls$reclass.without.outcome` in without event and `r rcls$reclass.outcome` in with outcome.
+
+## Test of IDI
+Asymptotic test of the difference in difference between risk of non-cases and cases
+
+$IDI = (\bar{\hat{p}}_{new,events}-\bar{\hat{p}}_{new,nonevents})-(\bar{\hat{p}}_{down,events}-\bar{\hat{p}}_{down,events})$.  Estimate = `r rcls$IDI` with SE = `r rcls$SE.IDI`.
+
+```{r,echo=FALSE,fig.height=3,fig.width=5}
+idiframe <- data.frame(model=c(rep("M1",length(pred1)),rep("M2",length(pred2))),
+                       risk=c(pred1,pred2),status=c(wcgs.s$chd69f,wcgs.s$chd69f))
+
+p <- ggplot(idiframe, aes(factor(status,labels=c("No CHD","CHD")), risk)) + xlab("")
+p <- p + theme(text = element_text(size=14))
+p + geom_boxplot(aes(fill = factor(model,labels=c("Model 1","Model 2")))) +  scale_fill_discrete(name="Model")
+```
+
+
+## Adding a new marker - Statistics to report
+* JAMA 2009 Review paper:
+* Assessment of Claims of Improved Prediction Beyond the Framingham Risk Score
+* Ioanna Tzoulaki, PhD George Liberopoulos, MD John P. A. Ioannidis, MD
+
+  -> Set standard
+
+* Akaike Information Criteria (AIC)
+* AUCs with and without the new predictor
+* Difference in AUC with a confidence interval
+* Calibration with and without the new marker with a goodness of fit test
+* Documentation of **reclassification**
+
