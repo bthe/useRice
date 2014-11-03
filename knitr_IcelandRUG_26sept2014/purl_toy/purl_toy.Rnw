@@ -1,0 +1,13 @@
+\documentclass{article}
+
+\begin{document}
+
+<<>>=
+x <- rnorm(4)
+y <- sum(x^2)
+@
+
+\Sexpr{y} is a realization of a chi-square distribution with \Sexpr{length(x)} df.
+
+
+\end{document}
